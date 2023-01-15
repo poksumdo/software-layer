@@ -60,6 +60,11 @@ else
 fi
 
 TMPDIR=$(mktemp -d)
+echo "TMPDIR=${TMPDIR}; size=$(df -h ${TMPDIR})"
+
+# are proxies configured
+echo "are proxies defined via http*?"
+env | grep -i http
 
 echo ">> Setting up environment..."
 
@@ -102,7 +107,7 @@ fi
 # Set all the EESSI environment variables (respecting $EESSI_SOFTWARE_SUBDIR_OVERRIDE)
 # $EESSI_SILENT - don't print any messages
 # $EESSI_BASIC_ENV - give a basic set of environment variables
-EESSI_SILENT=1 EESSI_BASIC_ENV=1 source $TOPDIR/init/eessi_environment_variables
+EESSI_SILENT=0 EESSI_BASIC_ENV=1 source $TOPDIR/init/eessi_environment_variables
 
 if [[ -z ${EESSI_SOFTWARE_SUBDIR} ]]; then
     fatal_error "Failed to determine software subdirectory?!"
@@ -147,10 +152,15 @@ if [[ $? -eq 0 ]]; then
 else
     echo_yellow ">> No EasyBuild module yet, installing it..."
 
+    curl -I https://pypi.org/simple/easybuild/
+
     EB_TMPDIR=${TMPDIR}/ebtmp
-    echo ">> Temporary installation (in ${EB_TMPDIR})..."
+    mkdir -p $EB_TMPDIR
+    echo ">> Temporary installation (in ${EB_TMPDIR}, $(df -h ${EB_TMPDIR}))..."
     pip_install_out=${TMPDIR}/pip_install.out
     pip3 install --prefix $EB_TMPDIR easybuild &> ${pip_install_out}
+
+    tail ${pip_install_out}
 
     echo ">> Final installation in ${EASYBUILD_INSTALLPATH}..."
     export PATH=${EB_TMPDIR}/bin:$PATH

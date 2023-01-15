@@ -2,20 +2,86 @@
 
 set -e
 
-if [ $# -ne 4 ]; then
-    echo "ERROR: Usage: $0 <EESSI tmp dir (example: /tmp/$USER/EESSI)> <pilot version (example: 2021.03)> <CPU arch subdir (example: x86_64/amd/zen2)> <path to tarball>" >&2
+if [ $# -lt 3 ]; then
+        echo "ERROR: Usage: $0 <EESSI tmp dir (example: /tmp/$USER/EESSI)> <component (software or compat)> <dir to tarball> <any additional options (example: --generic)>" >&2
     exit 1
 fi
 eessi_tmpdir=$1
-pilot_version=$2
-cpu_arch_subdir=$3
-target_tgz=$4
+component=$2
+basedir=$3
+
+# see example parsing of command line arguments at
+#   https://wiki.bash-hackers.org/scripting/posparams#using_a_while_loop
+#   https://stackoverflow.com/questions/192249/how-do-i-parse-command-line-arguments-in-bash
+
+display_help() {
+  echo "usage: $0 <EESSI tmp dir (example: /tmp/$USER/EESSI)> <component (software or compat)> <dir to tarball> [OPTIONS]"
+  echo "  OPTIONS"
+  echo "  -g | --generic         -  instructs script to tar files of generic architecture target"
+  echo "  -h | --help            -  display this usage information"
+}
+
+POSITIONAL_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -g|--generic)
+      EASYBUILD_OPTARCH="GENERIC"
+      shift
+      ;;
+    -h|--help)
+      display_help  # Call your function
+      # no shifting needed here, we're done.
+      exit 0
+      ;;
+    -*|--*)
+      echo "Error: Unknown option: $1" >&2
+      exit 1
+      ;;
+    *)  # No more options
+      POSITIONAL_ARGS+=("$1") # save positional arg
+      shift
+      ;;
+  esac
+done
+
+set -- "${POSITIONAL_ARGS[@]}"
+
+TOPDIR=$(dirname $(realpath $0))
+
+source $TOPDIR/utils.sh
+
+# need to source minimal_eessi_env early to have EESSI_CPU_FAMILY defined
+source $TOPDIR/init/minimal_eessi_env
+
+if [ -d $EESSI_CVMFS_REPO ]; then
+    echo_green "$EESSI_CVMFS_REPO available, OK!"
+else
+    fatal_error "$EESSI_CVMFS_REPO is not available!"
+fi
+
+if [[ "$EASYBUILD_OPTARCH" == "GENERIC" ]]; then
+    echo_yellow ">> Tar'ing GENERIC build, taking appropriate measures!"
+    export EESSI_SOFTWARE_SUBDIR_OVERRIDE=${EESSI_CPU_FAMILY}/generic
+fi
+
+# if EESSI_SOFTWARE_SUBDIR not set get it (note can be overridden by EESSI_SOFTWARE_SUBDIR_OVERRIDE)
+if [ -z $EESSI_SOFTWARE_SUBDIR ]; then
+    source init/eessi_environment_variables
+fi
+
+cpu_arch_subdir=${EESSI_SOFTWARE_SUBDIR}
+cpu_arch_subdir_converted=$(echo ${EESSI_SOFTWARE_SUBDIR} | tr '/' '-')
+pilot_version=$EESSI_PILOT_VERSION
+
+timestamp=$(date +%s)
+export target_tgz=$(printf "%s/eessi-%s-%s-%s-%s-%d.tar.gz" ${basedir} ${EESSI_PILOT_VERSION} ${component} ${EESSI_OS_TYPE} ${cpu_arch_subdir_converted} ${timestamp})
 
 tmpdir=`mktemp -d`
 echo ">> tmpdir: $tmpdir"
 
 os="linux"
-cvmfs_repo="/cvmfs/pilot.eessi-hpc.org"
+cvmfs_repo="/cvmfs/pilot.nessi.uiocloud.no"
 
 software_dir="${cvmfs_repo}/versions/${pilot_version}/software/${os}/${cpu_arch_subdir}"
 if [ ! -d ${software_dir} ]; then

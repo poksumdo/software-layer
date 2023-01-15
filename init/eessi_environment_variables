@@ -18,6 +18,8 @@ function error() {
 # set up minimal environment: $EESSI_PREFIX, $EESSI_PILOT_VERSION, $EESSI_OS_TYPE, $EESSI_CPU_FAMILY, $EPREFIX
 source $EESSI_INIT_DIR_PATH/minimal_eessi_env
 
+echo "minimal_eessi_env: EESSI_PREFIX=${EESSI_PREFIX}= EESSI_OS_TYPE=${EESSI_OS_TYPE}= EESSI_CPU_FAMILY=${EESSI_CPU_FAMILY}=" >> $output
+
 if [ -d $EESSI_PREFIX ]; then
   echo "Found EESSI pilot repo @ $EESSI_PREFIX!" >> $output
 
